@@ -63,7 +63,8 @@ type OpenAIChatResponse struct {
 type OpenAIImageResponse struct {
 	Created int64 `json:"created"`
 	Data    []struct {
-		Url string `json:"url"`
+		Url string `json:"url,omitempty"`
+		B64 string `json:"b64_json,omitempty"`
 	}
 }
 
@@ -216,7 +217,6 @@ func main() {
 			return
 		}
 		defer resp.Body.Close()
-
 		var aiRes OpenAIImageResponse
 		err = json.NewDecoder(resp.Body).Decode(&aiRes)
 		if err != nil {

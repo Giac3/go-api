@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 )
 
 type App struct {
@@ -34,6 +36,10 @@ func (a *App) PATCH(path string, handler http.HandlerFunc) {
 }
 func (a *App) DELETE(path string, handler http.HandlerFunc) {
 	a.addRoute("DELETE", path, handler)
+}
+func (a *App) GoLive(port int) {
+	fmt.Println("Server is live on PORT: " + strconv.Itoa(port))
+	http.ListenAndServe(":"+strconv.Itoa(port), a)
 }
 
 func (a *App) ServeHTTP(res http.ResponseWriter, req *http.Request) {

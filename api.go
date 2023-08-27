@@ -232,6 +232,5 @@ func main() {
 		http.Error(res, "No Images in OpenAI response", http.StatusInternalServerError)
 	})
 
-	fmt.Println("Server is live on localhost:3033")
-	log.Fatal(http.ListenAndServe(":3033", app))
+	app.GoLive(3033)
 }

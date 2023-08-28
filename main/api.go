@@ -8,6 +8,7 @@ import (
 	"modules/api/pacey"
 	"net/http"
 	"os"
+	"os/exec"
 
 	"github.com/joho/godotenv"
 )
@@ -45,6 +46,9 @@ type CreateEmbedding struct {
 	Model string   `json:"model"`
 	Input []string `json:"input"`
 	User  string   `json:"user,omitempty"`
+}
+type TextFromURL struct {
+	URL string `json:"url"`
 }
 
 type OpenAIChatResponse struct {
@@ -272,6 +276,23 @@ func main() {
 		}
 
 		http.Error(res, "No Embeddings in OpenAI response", http.StatusInternalServerError)
+	})
+
+	app.POST("/getTextFromURL", func(res http.ResponseWriter, req *http.Request) {
+		decoder := json.NewDecoder(req.Body)
+		var textFromUrl TextFromURL
+		err = decoder.Decode(&textFromUrl)
+		if err != nil {
+			http.Error(res, "Invalid request params", http.StatusBadRequest)
+			return
+		}
+		cmd := exec.Command("lynx", "--dump", textFromUrl.URL)
+		text, _ := cmd.CombinedOutput()
+		var response = struct {
+			Text string `json:"text"`
+		}{string(text)}
+		res.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(res).Encode(response)
 	})
 
 	app.GoLive(3033)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"modules/api/pacey"
 	"net/http"
 	"os"
 
@@ -40,6 +41,12 @@ type GenerateImage struct {
 	User            string `json:"user,omitempty"`
 }
 
+type CreateEmbedding struct {
+	Model string   `json:"model"`
+	Input []string `json:"input"`
+	User  string   `json:"user,omitempty"`
+}
+
 type OpenAIChatResponse struct {
 	Id      string `json:"id"`
 	Object  string `json:"object"`
@@ -65,40 +72,31 @@ type OpenAIImageResponse struct {
 	Data    []struct {
 		Url string `json:"url,omitempty"`
 		B64 string `json:"b64_json,omitempty"`
-	}
+	} `json:"data"`
+}
+type OpenAIEmbeddingResponse struct {
+	Object string `json:"object"`
+	Data   []struct {
+		Object    string    `json:"object"`
+		Index     int       `json:"index"`
+		Embedding []float64 `json:"embedding"`
+	} `json:"data"`
+	Model string `json:"model"`
+	Usage struct {
+		Prompt_tokens int `json:"prompt_tokens"`
+		Total_tokens  int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 var API_TOKEN string = ""
 
-func getChatCompletion(chatCompletion ChatCompletion) (*http.Response, error) {
-	jsonBody, err := json.Marshal(chatCompletion)
+func getData[T CreateEmbedding | GenerateImage | ChatCompletion](requestData T, endpoint string) (*http.Response, error) {
+	jsonBody, err := json.Marshal(requestData)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+API_TOKEN)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func getImageGeneration(generateImage GenerateImage) (*http.Response, error) {
-	jsonBody, err := json.Marshal(generateImage)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/images/generations", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +145,11 @@ func setDefaultValuesImage(generateImage *GenerateImage) {
 		generateImage.Size = "256x256"
 	}
 }
+func setDefaultValuesEmbedding(createEmbedding *CreateEmbedding) {
+	if createEmbedding.Model == "" {
+		createEmbedding.Model = "text-embedding-ada-002"
+	}
+}
 
 func main() {
 	err := godotenv.Load()
@@ -155,7 +158,7 @@ func main() {
 	}
 
 	API_TOKEN = os.Getenv("OPENAI_API_KEY")
-	app := NewApp()
+	app := pacey.NewApp()
 
 	app.GET("/", func(res http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(res, "Hello, go to /docs to check out the endpoints")
@@ -181,7 +184,7 @@ func main() {
 			return
 		}
 
-		resp, err := getChatCompletion(chatCompletion)
+		resp, err := getData(chatCompletion, "https://api.openai.com/v1/chat/completions")
 		if err != nil {
 			http.Error(res, "Error getting chat completion", http.StatusInternalServerError)
 			return
@@ -211,7 +214,7 @@ func main() {
 		decoder.Decode(&generateImage)
 		setDefaultValuesImage(&generateImage)
 
-		resp, err := getImageGeneration(generateImage)
+		resp, err := getData(generateImage, "https://api.openai.com/v1/images/generations")
 		if err != nil {
 			http.Error(res, "Error generating Image", http.StatusInternalServerError)
 			return
@@ -230,6 +233,45 @@ func main() {
 		}
 
 		http.Error(res, "No Images in OpenAI response", http.StatusInternalServerError)
+	})
+	app.POST("/createEmbedding", func(res http.ResponseWriter, req *http.Request) {
+		decoder := json.NewDecoder(req.Body)
+		var createEmbedding CreateEmbedding
+		err = decoder.Decode(&createEmbedding)
+		if err != nil {
+			if err.Error() == "json: cannot unmarshal string into Go struct field CreateEmbedding.input of type []string" {
+				http.Error(res, "Invalid Input: please provide a valid array of string(s) as input eg. \n{\n\t'input': ['Hello there']\n}", http.StatusBadRequest)
+				return
+			}
+			http.Error(res, "Error decoding request body: ", http.StatusBadRequest)
+			return
+		}
+		if len(createEmbedding.Input) == 0 || (len(createEmbedding.Input) == 1 && createEmbedding.Input[0] == "") {
+			http.Error(res, "Invalid Input: please provide a valid array of string(s) as input eg. \n{\n\t'input': ['Hello there']\n}", http.StatusBadRequest)
+			return
+		}
+		setDefaultValuesEmbedding(&createEmbedding)
+
+		resp, err := getData(createEmbedding, "https://api.openai.com/v1/embeddings")
+		if err != nil {
+			http.Error(res, "Error Creating Embeddings", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		var aiRes OpenAIEmbeddingResponse
+		err = json.NewDecoder(resp.Body).Decode(&aiRes)
+
+		if err != nil {
+			http.Error(res, "Error reading OpenAI response", http.StatusInternalServerError)
+			return
+		}
+		if len(aiRes.Data) > 0 {
+			res.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(res).Encode(aiRes.Data)
+			return
+		}
+
+		http.Error(res, "No Embeddings in OpenAI response", http.StatusInternalServerError)
 	})
 
 	app.GoLive(3033)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -286,11 +287,21 @@ func main() {
 			http.Error(res, "Invalid request params", http.StatusBadRequest)
 			return
 		}
+		if textFromUrl.URL == "" {
+			http.Error(res, "Must pass a valid", http.StatusBadRequest)
+			return
+		}
 		cmd := exec.Command("lynx", "--dump", textFromUrl.URL)
 		text, _ := cmd.CombinedOutput()
 		var response = struct {
 			Text string `json:"text"`
 		}{string(text)}
+
+		if strings.Contains(string(text), "\nCan't Access `file") {
+			http.Error(res, "Nope", http.StatusInternalServerError)
+			return
+		}
+
 		res.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(res).Encode(response)
 	})

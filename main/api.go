@@ -159,10 +159,13 @@ func setDefaultValuesEmbedding(createEmbedding *CreateEmbedding) {
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		fmt.Println("Error loading .env file")
 	}
 
 	API_TOKEN = os.Getenv("OPENAI_API_KEY")
+	if API_TOKEN == "" {
+		log.Fatal("Unable to get API KEY, check your env")
+	}
 	app := pacey.NewApp()
 
 	app.GET("/", func(res http.ResponseWriter, req *http.Request) {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -94,6 +95,7 @@ type OpenAIEmbeddingResponse struct {
 }
 
 var API_TOKEN string = ""
+var PORT int = 3033
 
 func getData[T CreateEmbedding | GenerateImage | ChatCompletion](requestData T, endpoint string) (*http.Response, error) {
 	jsonBody, err := json.Marshal(requestData)
@@ -165,6 +167,13 @@ func main() {
 	API_TOKEN = os.Getenv("OPENAI_API_KEY")
 	if API_TOKEN == "" {
 		log.Fatal("Unable to get API KEY, check your env")
+	}
+	port := os.Getenv("PORT")
+	Int, err := strconv.Atoi(port)
+	if err != nil {
+		fmt.Println("No port in .env using 3033 as fallback")
+	} else {
+		PORT = Int
 	}
 	app := pacey.NewApp()
 
@@ -309,5 +318,5 @@ func main() {
 		json.NewEncoder(res).Encode(response)
 	})
 
-	app.GoLive(3033)
+	app.GoLive(PORT)
 }

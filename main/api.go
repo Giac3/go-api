@@ -175,6 +175,9 @@ func main() {
 	} else {
 		PORT = Int
 	}
+
+	log.SetFlags(log.Ldate | log.Ltime)
+
 	app := pacey.NewApp()
 
 	app.GET("/", func(res http.ResponseWriter, req *http.Request) {
@@ -195,6 +198,8 @@ func main() {
 		}
 
 		setDefaultValuesChat(&chatCompletion)
+
+		log.Println("POST /chatCompletion - messages: ", chatCompletion.Messages)
 
 		if len(chatCompletion.Messages) == 0 {
 			http.Error(res, "Error: At least one message is required", http.StatusBadRequest)
@@ -230,7 +235,7 @@ func main() {
 		var generateImage GenerateImage
 		decoder.Decode(&generateImage)
 		setDefaultValuesImage(&generateImage)
-
+		log.Println("POST /generateImage - prompt: ", generateImage.Prompt, " size: ", generateImage.Size, " n: ", generateImage.N)
 		resp, err := getData(generateImage, "https://api.openai.com/v1/images/generations")
 		if err != nil {
 			http.Error(res, "Error generating Image", http.StatusInternalServerError)
@@ -268,6 +273,7 @@ func main() {
 			return
 		}
 		setDefaultValuesEmbedding(&createEmbedding)
+		log.Println("POST /createEmbedding - input: ", createEmbedding.Input, " model: ", createEmbedding.Model)
 
 		resp, err := getData(createEmbedding, "https://api.openai.com/v1/embeddings")
 		if err != nil {
@@ -303,6 +309,7 @@ func main() {
 			http.Error(res, "Must pass a valid", http.StatusBadRequest)
 			return
 		}
+		log.Println("POST /getTextFromURL - url: ", textFromUrl.URL)
 		cmd := exec.Command("lynx", "--dump", textFromUrl.URL)
 		text, _ := cmd.CombinedOutput()
 		var response = struct {

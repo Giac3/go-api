@@ -52,6 +52,15 @@ func (a *appImpl) GoLive(port int) {
 }
 
 func (a *appImpl) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Access-Control-Allow-Origin", "*")
+	res.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	res.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+	if req.Method == http.MethodOptions {
+		res.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if rm, ok := a.routes[req.URL.Path]; ok {
 		if handler, ok := rm[req.Method]; ok {
 			handler(res, req)
